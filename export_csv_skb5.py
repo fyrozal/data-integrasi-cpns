@@ -2,12 +2,13 @@
 Ini adalah script untuk mengubah pdf lampiran hasil CPNS jadi csv
 Caveat: kalo langsung prosess 20rb halaman, agak keselek di tengah, jadi mending di-iterate beberapa halaman
 Saya yakin ada cara yang lebih elegan. Feel free to give me any suggestions
-Cara run 
+Cara run
 python export_data_to_csv.py index_halaman_start index_halaman_end
 Misal
 python export_data_to_csv.py 0 100
 '''
 
+from ast import And
 import pdfplumber
 import pandas as pd
 import datetime as dt
@@ -18,7 +19,39 @@ def check_formasi_kosong_page(page):
     '''
     Fungsi untuk mengecek keberadaan tabel perorangan
     Input: page (ex: pdf.pages[0])
-    Output: 
+    Output:
+        - found (binary, iya tidaknya sebuah halaman punya tabel perorangan)
+        - df_returned (tabel perorangan jika ada)
+    '''
+    found = False
+    df_returned = pd.DataFrame()
+    tms1_terbaik = 0
+    for table in page.extract_tables():
+        df = pd.DataFrame(table)
+        if (df.shape[1] == 11) & (df.shape[0] == 5):
+
+            df_returned = df
+
+            jumlah_formasi = int(df.iloc[4, 1])
+            lulus_akhir = int(df.iloc[4, 10])
+            jumlah_tms1 = int(df.iloc[4, 8])
+            sisa_formasi = jumlah_formasi - lulus_akhir
+
+            if sisa_formasi > 0:
+                found = True
+                if sisa_formasi < jumlah_tms1:
+                    tms1_terbaik = sisa_formasi
+                else:
+                    tms1_terbaik = jumlah_tms1
+
+    return found, tms1_terbaik, df_returned
+
+
+def check_for_detail_tables(page):
+    '''
+    Fungsi untuk mengecek keberadaan tabel perorangan
+    Input: page (ex: pdf.pages[0])
+    Output:
         - found (binary, iya tidaknya sebuah halaman punya tabel perorangan)
         - df_returned (tabel perorangan jika ada)
     '''
@@ -26,29 +59,17 @@ def check_formasi_kosong_page(page):
     df_returned = pd.DataFrame()
     for table in page.extract_tables():
         df = pd.DataFrame(table)
-        if (df.shape[1] == 11) & (df.shape[0] == 5):
+        if (df.shape[1] == 11) & (df.shape[0] > 16):
             found = True
-            # df_returned = df
-
-            jumlah_formasi = df.iloc[4, 1]
-            lulus_akhir = df.iloc[4, 10]
-            jumlah_tms1 = df.iloc[4, 8]
-            sisa_formasi = jumlah_formasi - lulus_akhir
-
-            tms1_terbaik = 0
-            if sisa_formasi < jumlah_tms1:
-                tms1_terbaik = sisa_formasi
-            else:
-                tms1_terbaik = jumlah_tms1
-
-    return found, tms1_terbaik
+            df_returned = df
+    return found, df_returned
 
 
 def check_for_jabatan(page):
     '''
     Fungsi untuk mengecek keberadaan informasi lowongan
     Input: page (ex: pdf.pages[0])
-    Output: 
+    Output:
         - dicitionary berisi informasi lowongan
     '''
     if "Lokasi Formasi :" in page.extract_text():
@@ -92,13 +113,16 @@ def find_tms(df_):
     return tms1_terbaik
 
 
-def get_info_from_table(df_):
+def get_info_formasi_kosong_from_table(df_, jumlah_tms1):
     '''
-    Fungsi untuk mengekstrak informasi dari tabel perorangan 
+    Fungsi untuk mengekstrak informasi dari tabel perorangan
     Input: df_ (dataframe tabel perorangan)
-    Output: 
+    Output:
         - dicitionary berisi informasi perorangan yang telah diekstrak
     '''
+    jumlah_formasi = int(df_.iloc[4, 1])
+    lulus_akhir = int(df_.iloc[4, 10])
+    sisa_formasi = jumlah_formasi - lulus_akhir
 
     base_data = {
         "jumlah_peserta_skb": df_.iloc[4, 0],
@@ -112,6 +136,8 @@ def get_info_from_table(df_):
         "hasil_tms-1": df_.iloc[4, 8],
         "hasil_aps": df_.iloc[4, 9],
         "lulus_akhir": df_.iloc[4, 10],
+        "sisa_formasi": sisa_formasi,
+        "tms1_terbaik": jumlah_tms1
     }
 
     return {**base_data}
@@ -121,7 +147,7 @@ def split_df(df_):
     '''
     Fungsi untuk split tabel perorangan. Kadang ada satu halaman dengan lebih dari satu tabel.
     Input: df_ (dataframe tabel perorangan)
-    Output: 
+    Output:
         - list berisi beberapa dataframe untuk tiap individu
     '''
     dfs = []
@@ -135,7 +161,7 @@ def split_df(df_):
 
 
 if __name__ == "__main__":
-    file_name = 'HasilIntegrasi.pdf'
+    file_name = 'Lampiran2_ada.pdf'
     start_index = int(sys.argv[1])
     end_index = int(sys.argv[2])
     export_filename = file_name+".csv"
@@ -146,8 +172,9 @@ if __name__ == "__main__":
     last_jabatan = {}
 
     start_time = dt.datetime.now()
-    tms1_terbaik = 0
-    is_formasi_kosong = False
+    # tms1_terbaik = 0
+    is_formasi_kosong_found = False
+    is_detail_found = False
 
     for i in range(start_index, end_index):
         pg = pdf.pages[i]
@@ -157,16 +184,15 @@ if __name__ == "__main__":
         if current_jabatan != {}:
             last_jabatan = current_jabatan
 
-        is_detail_found, jumlah_tms1 = check_formasi_kosong_page(pg)
+        is_formasi_kosong_found, jumlah_tms1, formasi_kosong_df = check_formasi_kosong_page(
+            pg)
+        is_detail_found, detail_df = check_for_detail_tables(pg)
 
-        if jumlah_tms1 > 0:
-            tms1_terbaik = jumlah_tms1
-            continue
+        if is_formasi_kosong_found and jumlah_tms1 > 0:
+            print("jumlah_tms1 : "+str(jumlah_tms1))
 
-            # jika ketemu ada tabel perorangan
-        if is_detail_found:
-            # splitted_df = split_df(detail_df)
-            details = get_info_from_table(detail_df)
+            details = get_info_formasi_kosong_from_table(
+                formasi_kosong_df, jumlah_tms1)
             if current_jabatan == {}:
                 # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
                 details.update(last_jabatan)
@@ -175,6 +201,23 @@ if __name__ == "__main__":
                 details.update(current_jabatan)
                 last_jabatan = current_jabatan
             result.append(details)
+
+        # if jumlah_tms1 > 0:
+        #     tms1_terbaik = jumlah_tms1
+        #     continue
+
+        #     # jika ketemu ada tabel perorangan
+        # if is_detail_found:
+        #     # splitted_df = split_df(detail_df)
+        #     details = get_info_from_table(detail_df)
+        #     if current_jabatan == {}:
+        #         # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
+        #         details.update(last_jabatan)
+        #     else:
+        #         # kalo ga, pake info lowongan terakhir
+        #         details.update(current_jabatan)
+        #         last_jabatan = current_jabatan
+        #     result.append(details)
 
         # untuk logging
         if i % 100 == 99:
