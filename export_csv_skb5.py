@@ -240,11 +240,12 @@ if __name__ == "__main__":
         is_formasi_kosong_found, jumlah_tms1, formasi_kosong_df = check_formasi_kosong_page(
             pg)
         is_detail_found, detail_df = check_for_detail_tables(pg)
-        tms1_terbaik = jumlah_tms1
+
         # print("jumlah_tms1 : "+str(tms1_terbaik))
 
-        if is_formasi_kosong_found and tms1_terbaik > 0:
-            print("jumlah_tms1 : "+str(tms1_terbaik))
+        if is_formasi_kosong_found and jumlah_tms1 > 0:
+            tms1_terbaik = jumlah_tms1
+            # print("jumlah_tms1 : "+str(tms1_terbaik))
             print("page : "+str(i) +
                   " , formasi_kosong found, jumlah_tms1 : "+str(tms1_terbaik))
             details = get_info_formasi_kosong_from_table(
@@ -261,21 +262,23 @@ if __name__ == "__main__":
         # print("page : "+str(i)+" , jumlah_tms1 : " +
         #       str(tms1_terbaik) + " detail_found "+str(is_detail_found))
 
-        if is_detail_found and tms1_terbaik > 0:
-            print("page : "+str(i) +
-                  " , detailfound kosong, jumlah_tms1 : "+str(tms1_terbaik))
+        if is_detail_found:
 
-            splitted_df = split_df(detail_df)
-            for df_ in splitted_df:
-                details = get_info_from_table(df_)
-                if current_jabatan == {}:
-                    # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
-                    details.update(last_jabatan)
-                else:
-                    # kalo ga, pake info lowongan terakhir
-                    details.update(current_jabatan)
-                    last_jabatan = current_jabatan
-                result.append(details)
+            print("page : "+str(i) +
+                  " , detailfound, jumlah_tms1 : "+str(tms1_terbaik))
+            if tms1_terbaik > 0:
+                print("page : "+str(i) + " tms1_terbaik : "+str(tms1_terbaik))
+                splitted_df = split_df(detail_df)
+                for df_ in splitted_df:
+                    details = get_info_from_table(df_)
+                    if current_jabatan == {}:
+                        # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
+                        details.update(last_jabatan)
+                    else:
+                        # kalo ga, pake info lowongan terakhir
+                        details.update(current_jabatan)
+                        last_jabatan = current_jabatan
+                    result.append(details)
 
         # if jumlah_tms1 > 0:
         #     tms1_terbaik = jumlah_tms1
