@@ -90,6 +90,7 @@ def get_info_from_table(df_):
     base_data = {
         "no_peserta": df_.iloc[1, 1],
         "kode_pendidikan": df_.iloc[1, 2],
+        "nama": df_.iloc[1, 3],
         "tanggal_lahir": df_.iloc[1, 8],
         "ipk": df_.iloc[1, 10],
         "keterangan": df_.iloc[7, 10],
@@ -125,7 +126,7 @@ if __name__ == "__main__":
     start_index = int(sys.argv[1])
     end_index = int(sys.argv[2])
     export_filename = "cpns_"+str(start_index)+"_"+str(end_index)+".csv"
-    pdf = pdfplumber.open('HasilIntegrasi.pdf')
+    pdf = pdfplumber.open('LAMPIRAN2_prasanggah.pdf')
 
     # start iterating
     result = []
@@ -143,6 +144,7 @@ if __name__ == "__main__":
         is_detail_found, detail_df = check_for_detail_tables(pg)
         # jika ketemu ada tabel perorangan
         if is_detail_found:
+            print("page : "+str(i) + " detail_found "+str(is_detail_found))
             splitted_df = split_df(detail_df)
             for df_ in splitted_df:
                 details = get_info_from_table(df_)
