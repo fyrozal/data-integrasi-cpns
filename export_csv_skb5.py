@@ -150,9 +150,9 @@ def get_info_formasi_kosong_from_table(df_, jumlah_tms1):
 
 def get_info_from_table(df_, jumlah_tms1):
     '''
-    Fungsi untuk mengekstrak informasi dari tabel perorangan 
+    Fungsi untuk mengekstrak informasi dari tabel perorangan
     Input: df_ (dataframe tabel perorangan)
-    Output: 
+    Output:
         - dicitionary berisi informasi perorangan yang telah diekstrak
     '''
    # keterangan_peserta = df_.iloc[7, 10]
@@ -202,6 +202,7 @@ def split_df(df_):
     dfs = []
     header_indexes = list(df_[df_[1] == "No Peserta"].index)
     header_indexes.append(len(df_))
+    count = 0
     for i in range(len(header_indexes)-1):
         splitted_df = df_.iloc[header_indexes[i]: header_indexes[i+1], :]
         splitted_df.index = range(len(splitted_df))
@@ -209,12 +210,16 @@ def split_df(df_):
         ket_peserta = splitted_df.iloc[7, 10]
         if ket_peserta == "P/TMS-1":
             dfs.append(splitted_df)
+            count += 1
+            print("count : "+str(count))
 
     return dfs
 
 
 if __name__ == "__main__":
+    # file_name = 'LampiranPasca.pdf'
     file_name = 'LAMPIRAN2_prasanggah.pdf'
+
     start_index = int(sys.argv[1])
     end_index = int(sys.argv[2])
     export_filename = file_name+".csv"
@@ -243,34 +248,46 @@ if __name__ == "__main__":
 
         # print("jumlah_tms1 : "+str(tms1_terbaik))
 
-        if is_formasi_kosong_found and jumlah_tms1 > 0:
-            tms1_terbaik = jumlah_tms1
-            # print("jumlah_tms1 : "+str(tms1_terbaik))
-            print("page : "+str(i) +
-                  " , formasi_kosong found, jumlah_tms1 : "+str(tms1_terbaik))
-            details = get_info_formasi_kosong_from_table(
-                formasi_kosong_df, tms1_terbaik)
-            if current_jabatan == {}:
-                # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
-                details.update(last_jabatan)
+        if is_formasi_kosong_found:
+            if jumlah_tms1 > 0:
+                tms1_terbaik = jumlah_tms1
+                # print("jumlah_tms1 : "+str(tms1_terbaik))
+                print("page : "+str(i) +
+                      " , formasi_kosong found, tms1_terbaik : "+str(tms1_terbaik))
+                details = get_info_formasi_kosong_from_table(
+                    formasi_kosong_df, tms1_terbaik)
+                if current_jabatan == {}:
+                    # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
+                    details.update(last_jabatan)
+                else:
+                    # kalo ga, pake info lowongan terakhir
+                    details.update(current_jabatan)
+                    last_jabatan = current_jabatan
+                # result.append(details)
             else:
-                # kalo ga, pake info lowongan terakhir
-                details.update(current_jabatan)
-                last_jabatan = current_jabatan
-            # result.append(details)
+                tms1_terbaik = 0
 
         # print("page : "+str(i)+" , jumlah_tms1 : " +
         #       str(tms1_terbaik) + " detail_found "+str(is_detail_found))
 
         if is_detail_found:
 
-            print("page : "+str(i) +
-                  " , detailfound, jumlah_tms1 : "+str(tms1_terbaik))
+            # print("page : "+str(i) +
+            #       " , detailfound, tms1_terbaik : "+str(tms1_terbaik))
+
+            # count_tms1 = tms1_terbaik
+            # tms1_terbaik = 0
             if tms1_terbaik > 0:
-                print("page : "+str(i) + " tms1_terbaik : "+str(tms1_terbaik))
+                print("page detailfound : "+str(i) + " count_tms1 : " +
+                      str(tms1_terbaik))
                 splitted_df = split_df(detail_df)
+
+                i = 0
                 for df_ in splitted_df:
-                    details = get_info_from_table(df_)
+                    print("splitted_df page : "+str(i) +
+                          " count_tms1 : "+str(tms1_terbaik))
+                    # if i < count_tms1:
+                    details = get_info_from_table(df_, tms1_terbaik)
                     if current_jabatan == {}:
                         # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
                         details.update(last_jabatan)
@@ -279,23 +296,7 @@ if __name__ == "__main__":
                         details.update(current_jabatan)
                         last_jabatan = current_jabatan
                     result.append(details)
-
-        # if jumlah_tms1 > 0:
-        #     tms1_terbaik = jumlah_tms1
-        #     continue
-
-        #     # jika ketemu ada tabel perorangan
-        # if is_detail_found:
-        #     # splitted_df = split_df(detail_df)
-        #     details = get_info_from_table(detail_df)
-        #     if current_jabatan == {}:
-        #         # kalo ada info lowongan di halaman yang sama, pakai info lowongan tsb
-        #         details.update(last_jabatan)
-        #     else:
-        #         # kalo ga, pake info lowongan terakhir
-        #         details.update(current_jabatan)
-        #         last_jabatan = current_jabatan
-        #     result.append(details)
+                    # i = i + 1
 
         # untuk logging
         if i % 100 == 99:
